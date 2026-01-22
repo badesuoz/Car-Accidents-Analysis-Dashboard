@@ -222,5 +222,3 @@ Figure 7. Distribution of traffic accidents by weather condition, indicating tha
 accidents occur in clear weather, adverse conditions such as rain, snow, and fog increase
 accident risk.
 
-Force README refresh
-
