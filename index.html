@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Accidents Analysis Dashboard</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <!-- Leaflet (real interactive maps) -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .intro-card {
+            margin-bottom: 25px;
+        }
+
+        .intro-text {
+            font-size: 0.95em;
+            color: #444;
+            line-height: 1.5;
+        }
+
+        .intro-section-title {
+            font-weight: 600;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .intro-list {
+            margin-left: 18px;
+            margin-top: 5px;
+        }
+
+        .intro-list li {
+            margin-bottom: 4px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .prevention-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .prevention-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .prevention-item:hover {
+            transform: translateX(10px);
+        }
+
+        .prevention-icon {
+            font-size: 1.5em;
+            margin-right: 15px;
+            min-width: 30px;
+        }
+
+        .map-container {
+            position: relative;
+            height: 400px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        /* Real maps */
+        .leaflet-map {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            line-height: 18px;
+            color: #555;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            font-size: 12px;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background: #e0e0e0;
+            color: #666;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Extra info list */
+        .info-list {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            margin-bottom: 12px;
+            padding-left: 12px;
+            border-left: 4px solid #667eea;
+            font-size: 0.95em;
+            color: #444;
+        }
+
+        .takeaways-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .takeaways-list li {
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 4px solid #f5576c;
+            color: #444;
+            font-size: 0.95em;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>🚗 Car Accidents Analysis Dashboard</h1>
+        <p class="subtitle">Comprehensive Analysis of Traffic Accidents and Prevention Strategies</p>
+    </header>
+
+    <!-- INTRO CARD -->
+    <div class="card intro-card">
+        <h2 class="card-title">ℹ️ Introduction</h2>
+        <div class="intro-text">
+            <p>
+                Road traffic crashes are a major public health problem. Every year, around <strong>1.19 million</strong> people
+                die in traffic accidents worldwide, and tens of millions are injured. In Turkey, thousands of people lose their
+                lives and hundreds of thousands are injured each year, especially in big cities and on busy intercity roads.
+            </p>
+            <p class="intro-section-title">What this dashboard shows:</p>
+            <ul class="intro-list">
+                <li><strong>Types & Causes:</strong> What kinds of crashes happen most and which risk factors are most important.</li>
+                <li><strong>Area, Age & Weather:</strong> Where accidents happen, which age groups are most affected, and how weather changes the risk.</li>
+                <li><strong>Global vs. Turkey:</strong> Key global statistics compared to the situation in Turkey.</li>
+                <li><strong>Heat Maps:</strong> Hotspots on real maps for Turkey and the world, focusing on high-risk regions.</li>
+                <li><strong>Prevention:</strong> Simple, practical actions that can reduce the number and severity of crashes.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- Accident Types Chart -->
+        <div class="card">
+            <h2 class="card-title">📊 Types of Car Accidents</h2>
+            <div class="chart-container">
+                <canvas id="accidentTypesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Causes Chart -->
+        <div class="card">
+            <h2 class="card-title">⚠️ Main Causes of Accidents</h2>
+            <div class="chart-container">
+                <canvas id="causesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Accidents by Area Type -->
+        <div class="card">
+            <h2 class="card-title">📍 Accidents by Area Type</h2>
+            <p style="font-size:0.9em;color:#555;">
+                Comparison of where crashes happen vs. where people die (urban, rural, highways).
+            </p>
+            <div class="chart-container">
+                <canvas id="areaChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Global & Turkey Snapshot -->
+        <div class="card">
+            <h2 class="card-title">🌍 Global & Turkey Road Safety Snapshot</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number">1.19M</div>
+                    <div class="stat-label">Global deaths per year</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">50M+</div>
+                    <div class="stat-label">Global injuries per year</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">5–29</div>
+                    <div class="stat-label">Top cause of death age</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">~6,000</div>
+                    <div class="stat-label">Estimated deaths per year in Turkey</div>
+                </div>
+            </div>
+            <ul class="info-list">
+                <li class="info-item">
+                    More than half of road deaths are vulnerable users: pedestrians, cyclists and motorcyclists.
+                </li>
+                <li class="info-item">
+                    About 92% of global road deaths occur in low- and middle-income countries, although they have only
+                    ~60% of the world’s vehicles.
+                </li>
+                <li class="info-item">
+                    Since 2010, global deaths have fallen only slightly, so road safety is still a major public health problem.
+                </li>
+                <li class="info-item">
+                    In Turkey, big cities and busy intercity routes (Istanbul, Ankara, Izmir corridors) concentrate a
+                    large share of serious crashes.
+                </li>
+            </ul>
+        </div>
+
+        <!-- Accidents by Age Group -->
+        <div class="card">
+            <h2 class="card-title">👥 Accidents by Age Group</h2>
+            <p style="font-size:0.9em;color:#555;">
+                Younger drivers are often overrepresented in serious crashes due to inexperience and risky behavior.
+            </p>
+            <div class="chart-container">
+                <canvas id="ageChart"></canvas>
+            </div>
+        </div>
+
+        <!-- NEW: Accidents by Weather Condition -->
+        <div class="card">
+            <h2 class="card-title">🌦️ Accidents by Weather Condition</h2>
+            <p style="font-size:0.9em;color:#555;">
+                Most crashes still occur in clear weather, but rain, snow and fog sharply increase the risk for each kilometre driven.
+            </p>
+            <div class="chart-container">
+                <canvas id="weatherChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prevention Tips -->
+    <div class="card" style="margin-bottom: 25px;">
+        <h2 class="card-title">🛡️ How to Prevent Car Accidents</h2>
+        <ul class="prevention-list">
+            <li class="prevention-item">
+                <span class="prevention-icon">👀</span>
+                <div>
+                    <strong>Stay Focused:</strong> Avoid distractions like mobile phones, eating, or adjusting controls while driving
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">⚡</span>
+                <div>
+                    <strong>Obey Speed Limits:</strong> Speed increases both crash likelihood and severity - follow posted limits
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">🔒</span>
+                <div>
+                    <strong>Wear Seatbelts:</strong> Seatbelts reduce the risk of death and serious injury significantly
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">🚫</span>
+                <div>
+                    <strong>Never Drink and Drive:</strong> Alcohol impairs judgment and reaction time - use designated drivers or taxis
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">🔧</span>
+                <div>
+                    <strong>Maintain Your Vehicle:</strong> Regular maintenance of brakes, tires, and lights prevents mechanical failures
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">🌙</span>
+                <div>
+                    <strong>Get Adequate Rest:</strong> Drowsy driving is as dangerous as drunk driving - take breaks on long trips
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">📏</span>
+                <div>
+                    <strong>Keep Safe Distance:</strong> Maintain a 3-second following distance to allow adequate reaction time
+                </div>
+            </li>
+            <li class="prevention-item">
+                <span class="prevention-icon">🌧️</span>
+                <div>
+                    <strong>Adjust for Weather:</strong> Reduce speed and increase following distance in rain, fog, or snow
+                </div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Heat Maps -->
+    <div class="card">
+        <h2 class="card-title">🗺️ Accident Hot Spots</h2>
+        <div class="tab-container">
+            <button class="tab-button active" onclick="switchTab(event, 'turkey')">Turkey Heat Map</button>
+            <button class="tab-button" onclick="switchTab(event, 'world')">World Heat Map</button>
+        </div>
+
+        <!-- Turkey Map -->
+        <div id="turkey-map" class="tab-content active">
+            <div class="map-container">
+                <div id="turkeyLeafletMap" class="leaflet-map"></div>
+
+                
+            </div>
+
+            <div class="stats-grid" style="margin-top: 20px;">
+                <div class="stat-box">
+                    <div class="stat-number">~6,000</div>
+                    <div class="stat-label">Annual Fatalities (approx.)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">1.2M+</div>
+                    <div class="stat-label">Reported Crashes / Year</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Istanbul</div>
+                    <div class="stat-label">Highest Risk City</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- World Map -->
+        <div id="world-map" class="tab-content">
+            <div class="map-container">
+                <div id="worldLeafletMap" class="leaflet-map"></div>
+
+                <div class="legend">
+                    <div class="legend-title">Accident Risk Level (World)</div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#d32f2f;"></div>
+                        <span>Very High fatality rate</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#ff6b6b;"></div>
+                        <span>High</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#ff9800;"></div>
+                        <span>Medium</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#ffb74d;"></div>
+                        <span>Lower</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="margin-top: 20px;">
+                <div class="stat-box">
+                    <div class="stat-number">1.19M</div>
+                    <div class="stat-label">Global Deaths / Year</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">50M+</</div>
+                    <div class="stat-label">Injuries / Year</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">#1</div>
+                    <div class="stat-label">Cause of death (age 5–29)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">92%</div>
+                    <div class="stat-label">Deaths in low & middle income countries</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KEY TAKEAWAYS -->
+    <div class="card" style="margin-top:25px; margin-bottom:10px;">
+        <h2 class="card-title">✅ Key Takeaways</h2>
+        <ul class="takeaways-list">
+            <li>
+                Road traffic crashes kill around <strong>1.19 million people every year worldwide</strong> and remain a leading cause of death for young people, especially ages 5–29.
+            </li>
+            <li>
+                In <strong>Turkey</strong>, thousands of people die and over a million crashes are reported each year, with the highest concentration of accidents in large cities like <strong>Istanbul</strong>.
+            </li>
+            <li>
+                Most crashes occur on <strong>urban roads</strong>, but a large share of deaths happen on <strong>rural roads and highways</strong> where speeds are higher.
+            </li>
+            <li>
+                <strong>Younger drivers (18–34)</strong> are involved in a disproportionate share of serious crashes, highlighting the importance of training, enforcement and awareness for this age group.
+            </li>
+            <li>
+                Weather conditions such as <strong>rain, snow and fog</strong> increase risk, so adapting speed and distance in bad weather is critical for safety.
+            </li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    
+    const typesCtx = document.getElementById('accidentTypesChart').getContext('2d');
+    new Chart(typesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                'Rear-End Collisions',
+                'Side-Impact (T-Bone)',
+                'Head-On Collisions',
+                'Single Vehicle',
+                'Rollover',
+                'Multi-Vehicle Pile-Up'
+            ],
+            datasets: [{
+                data: [32, 25, 8, 20, 9, 6],
+                backgroundColor: [
+                    '#667eea',
+                    '#764ba2',
+                    '#f093fb',
+                    '#4facfe',
+                    '#43e97b',
+                    '#fa709a'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return context.label + ': ' + context.parsed + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    
+    const causesCtx = document.getElementById('causesChart').getContext('2d');
+    new Chart(causesCtx, {
+        type: 'bar',
+        data: {
+            labels: [
+                'Distracted Driving',
+                'Speeding',
+                'Drunk Driving',
+                'Weather',
+                'Reckless Driving',
+                'Running Red Lights'
+            ],
+            datasets: [{
+                label: 'Percentage of Accidents',
+                data: [29, 26, 15, 11, 10, 9],
+                backgroundColor: [
+                    '#667eea',
+                    '#764ba2',
+                    '#f093fb',
+                    '#4facfe',
+                    '#43e97b',
+                    '#fa709a'
+                ],
+                borderWidth: 0,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 35,
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return context.parsed.y + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    
+    const areaCtx = document.getElementById('areaChart').getContext('2d');
+    new Chart(areaCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Urban Roads', 'Rural Roads', 'Highways/Motorways'],
+            datasets: [
+                {
+                    label: 'Share of crashes',
+                    data: [73, 22, 5],
+                    backgroundColor: '#667eea',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Share of deaths',
+                    data: [38, 52, 9],
+                    backgroundColor: '#f5576c',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 80,
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return context.dataset.label + ': ' + context.parsed.y + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    
+    const ageCtx = document.getElementById('ageChart').getContext('2d');
+    new Chart(ageCtx, {
+        type: 'bar',
+        data: {
+            labels: ['0–17', '18–24', '25–34', '35–49', '50–64', '65+'],
+            datasets: [{
+                label: 'Share of serious crashes',
+                data: [5, 26, 24, 20, 15, 10],
+                backgroundColor: [
+                    '#4facfe',
+                    '#f5576c',
+                    '#f093fb',
+                    '#667eea',
+                    '#43e97b',
+                    '#ffa726'
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 30,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + '% of serious crashes';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    
+    const weatherCtx = document.getElementById('weatherChart').getContext('2d');
+    new Chart(weatherCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Clear / Dry', 'Rain', 'Snow / Ice', 'Fog / Mist', 'Other'],
+            datasets: [{
+                label: 'Share of crashes',
+                data: [55, 25, 10, 5, 5], // example percentages
+                backgroundColor: [
+                    '#4facfe',
+                    '#667eea',
+                    '#f093fb',
+                    '#ffa726',
+                    '#43e97b'
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 60,
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return context.parsed.y + '% of crashes';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    
+    let turkeyMap, worldMap;
+
+    
+    const accidentData = {
+        "İstanbul": 351729, "Ankara": 164669, "İzmir": 104959, "Bursa": 69634, "Antalya": 58778,
+        "Kocaeli": 45454, "Konya": 40136, "Adana": 32431, "Mersin": 28870, "Kayseri": 27089,
+        "Gaziantep": 24858, "Samsun": 24702, "Muğla": 22902, "Balıkesir": 20523, "Denizli": 20479,
+        "Manisa": 19752, "Hatay": 19210, "Sakarya": 19174, "Tekirdağ": 17400, "Aydın": 17537,
+        "Eskişehir": 15848, "Kahramanmaraş": 15110, "Diyarbakır": 14453, "Ordu": 11466, "Şanlıurfa": 11231,
+        "Malatya": 11006, "Trabzon": 10385, "Afyonkarahisar": 9131, "Çorum": 8367, "Erzurum": 8265,
+        "Sivas": 7916, "Çanakkale": 7444, "Düzce": 7092, "Zonguldak": 6991, "Elazığ": 6876,
+        "Tokat": 6701, "Kütahya": 6657, "Osmaniye": 6619, "Aksaray": 6312, "Van": 5969,
+        "Isparta": 5790, "Uşak": 5712, "Bolu": 5699, "Edirne": 5610, "Adıyaman": 5139,
+        "Nevşehir": 5108, "Amasya": 4937, "Yalova": 4947, "Niğde": 4537, "Mardin": 4405,
+        "Batman": 4389, "Kastamonu": 4360, "Rize": 4360, "Kırklareli": 4037, "Kırıkkale": 3952,
+        "Karaman": 3894, "Yozgat": 3867, "Karabük": 3648, "Burdur": 3639, "Erzincan": 3442,
+        "Bilecik": 2978, "Kırşehir": 2806, "Çankırı": 2594, "Sinop": 2333, "Bartın": 2232,
+        "Ağrı": 2182, "Şırnak": 2128, "Bitlis": 2041, "Bingöl": 1822, "Siirt": 1709,
+        "Kilis": 1614, "Artvin": 1536, "Kars": 1398, "Muş": 1370, "Iğdır": 1230,
+        "Gümüşhane": 1065, "Hakkari": 707, "Bayburt": 692, "Tunceli": 629, "Ardahan": 600
+    };
+
+    // Renk Ayarı (Kaza sayısına göre)
+    function getColor(d) {
+        return d > 100000 ? '#800026' : 
+               d > 50000  ? '#BD0026' : 
+               d > 25000  ? '#E31A1C' : 
+               d > 10000  ? '#FC4E2A' : 
+               d > 5000   ? '#FD8D3C' : 
+               d > 2500   ? '#FEB24C' : 
+                            '#FED976';
+    }
+
+    function style(feature) {
+        
+        const count = accidentData[feature.properties.name] || 0;
+        return {
+            fillColor: getColor(count),
+            weight: 2,
+            opacity: 1,
+            color: 'white',
+            dashArray: '3',
+            fillOpacity: 0.7
+        };
+    }
+
+    function createMaps() {
+        // 1. TÜRKİYE HARİTASI
+        turkeyMap = L.map('turkeyLeafletMap', {attributionControl: false}).setView([39.0, 35.0], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(turkeyMap);
+
+        
+        fetch('tr-cities-kktc.json')
+            .then(res => res.json())
+            .then(data => {
+                const geoJsonLayer = L.geoJson(data, {
+                    style: style,
+                    onEachFeature: function(feature, layer) {
+                        const count = accidentData[feature.properties.name] || 0;
+                        // Tıklayınca veya üzerine gelince çıkan bilgi
+                        layer.bindPopup(`<b>${feature.properties.name}</b><br>Kaza Sayısı: ${count.toLocaleString()}`);
+                        
+                        layer.on({
+                            mouseover: function(e) {
+                                var layer = e.target;
+                                layer.setStyle({ weight: 3, color: '#666', fillOpacity: 0.9 });
+                            },
+                            mouseout: function(e) {
+                                geoJsonLayer.resetStyle(e.target);
+                            }
+                        });
+                    }
+                }).addTo(turkeyMap);
+
+                
+                const legend = L.control({position: 'bottomright'});
+                legend.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'legend');
+                    const grades = [0, 2500, 5000, 10000, 25000, 50000, 100000];
+                    div.innerHTML = '<strong>Kaza Sayısı</strong><br>';
+                    for (let i = 0; i < grades.length; i++) {
+                        div.innerHTML +=
+                            '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
+                            grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+                    }
+                    return div;
+                };
+                legend.addTo(turkeyMap);
+            })
+            .catch(err => console.error("JSON Yükleme Hatası: tr-provinces.json dosyasını kontrol edin.", err));
+
+        
+        worldMap = L.map('worldLeafletMap', {attributionControl: false}).setView([20, 10], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(worldMap);
+        
+        const worldHotspots = [
+            {name: 'USA', coords: [37.09, -95.71], value: 75},
+            {name: 'India', coords: [20.59, 78.96], value: 100},
+            {name: 'China', coords: [35.86, 104.19], value: 95}
+        ];
+        worldHotspots.forEach(p => {
+             L.circleMarker(p.coords, { radius: 10, fillColor: '#d32f2f', color: '#fff', fillOpacity: 0.8 }).addTo(worldMap);
+        });
+    }
+
+   
+    function switchTab(evt, tab) {
+        const buttons = document.querySelectorAll('.tab-button');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        evt.currentTarget.classList.add('active');
+
+        document.getElementById('turkey-map').classList.remove('active');
+        document.getElementById('world-map').classList.remove('active');
+        document.getElementById(tab + '-map').classList.add('active');
+
+        if (tab === 'turkey' && turkeyMap) {
+            setTimeout(() => turkeyMap.invalidateSize(), 200);
+        }
+        if (tab === 'world' && worldMap) {
+            setTimeout(() => worldMap.invalidateSize(), 200);
+        }
+    }
+
+    
+    window.addEventListener('load', function () {
+        createMaps();
+        if (turkeyMap) {
+            setTimeout(() => turkeyMap.invalidateSize(), 200);
+        }
+    });
+</script>
+</body>
+</html>
